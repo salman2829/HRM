@@ -92,11 +92,37 @@ export default function StaffTrackingMap({
         return u.status === 'CLOCKED_IN' && u.currentLocation && typeof u.currentLocation.lat === 'number';
       });
 
+      // Draw Corporate Office Geofence Zone Circle
+      L.circle([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], {
+        color: '#4f46e5',
+        fillColor: '#818cf8',
+        fillOpacity: 0.12,
+        weight: 2,
+        dashArray: '5, 8',
+        radius: 450, // 450m verified campus perimeter
+      }).bindTooltip("🏢 Cyber Towers Corporate Zone (450m Geofence)", {
+        permanent: false,
+        direction: 'top',
+        className: 'text-xs font-bold text-indigo-900 bg-white border border-indigo-200 px-2 py-1 rounded shadow-xs'
+      }).addTo(map);
+
       displayUsers.forEach((user) => {
         const isClockedIn = user.status === 'CLOCKED_IN';
         const loc = user.currentLocation;
 
         if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
+
+        // Geofence calculation
+        const R = 6371; // km
+        const dLat = (loc.lat - DEFAULT_CENTER.lat) * (Math.PI / 180);
+        const dLon = (loc.lng - DEFAULT_CENTER.lng) * (Math.PI / 180);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(DEFAULT_CENTER.lat * (Math.PI / 180)) * Math.cos(loc.lat * (Math.PI / 180)) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distKm = Number((R * c).toFixed(2));
+        const isInsideGeofence = distKm <= 0.45;
 
         // Custom HTML Marker with Emerald radar ring for active on-duty staff
         const markerHtml = `
@@ -150,6 +176,17 @@ export default function StaffTrackingMap({
                 <span class="text-slate-500">Live Presence:</span>
                 <span class="font-bold px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800">
                   🟢 CLOCKED IN
+                </span>
+              </div>
+
+              <div class="flex items-center justify-between">
+                <span class="text-slate-500">Geofence Status:</span>
+                <span class="font-bold px-2 py-0.5 rounded text-[10px] ${
+                  isInsideGeofence 
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                }">
+                  ${isInsideGeofence ? '🏢 Inside Office (≤450m)' : `🏠 Remote WFH (${distKm}km)`}
                 </span>
               </div>
 

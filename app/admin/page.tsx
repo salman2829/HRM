@@ -8,9 +8,11 @@ import MapWrapper from '@/components/MapWrapper';
 import StaffDetailModal from '@/components/StaffDetailModal';
 import AttendanceHistoryTable from '@/components/AttendanceHistoryTable';
 import CredentialsModal from '@/components/CredentialsModal';
+import AdminApprovalsWidget from '@/components/AdminApprovalsWidget';
 import AuthGate from '@/components/AuthGate';
 import { User } from '@/lib/types';
-import { Shield, Radio, AlertTriangle, Users } from 'lucide-react';
+import { Shield, Radio, AlertTriangle, Users, Download } from 'lucide-react';
+import { exportStaffDirectoryToCsv } from '@/lib/export-utils';
 
 export default function AdminDashboardPage() {
   const { 
@@ -88,6 +90,17 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Export Staff Roster CSV */}
+          <button
+            type="button"
+            onClick={() => exportStaffDirectoryToCsv(users)}
+            className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+            title="Export full staff roster to CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Export Roster</span>
+          </button>
+
           {/* Admin Exclusive Credentials Directory Button */}
           <button
             type="button"
@@ -140,6 +153,9 @@ export default function AdminDashboardPage() {
         </div>
 
       </div>
+
+      {/* Admin Leave & Regularization Approval Center */}
+      <AdminApprovalsWidget />
 
       {/* Full Attendance History Audit Log Table */}
       <div id="audit">

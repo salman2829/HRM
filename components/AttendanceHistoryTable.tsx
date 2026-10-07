@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { AttendanceRecord } from '@/lib/types';
+import { useApp } from './AppContext';
 import { formatTime, formatDate, formatDuration } from '@/lib/utils';
-import { Calendar, Clock, MapPin, Search, Smartphone } from 'lucide-react';
+import { Calendar, Clock, MapPin, Search, Smartphone, Download, Printer } from 'lucide-react';
+import { exportAttendanceToCsv, printMonthlyAttendanceReport } from '@/lib/export-utils';
 
 interface AttendanceHistoryTableProps {
   records: AttendanceRecord[];
@@ -16,6 +18,7 @@ export default function AttendanceHistoryTable({
   title = "Shift Attendance History",
   subtitle = "Historical shift logs and geolocation check-in/out records"
 }: AttendanceHistoryTableProps) {
+  const { currentUser } = useApp();
   const [filterText, setFilterText] = useState('');
 
   const filtered = records.filter(r => 
@@ -34,16 +37,42 @@ export default function AttendanceHistoryTable({
           <p className="text-xs text-slate-500">{subtitle}</p>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search date, place, note..."
-            value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-colors"
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 1-Click CSV Export */}
+          <button
+            type="button"
+            onClick={() => exportAttendanceToCsv(filtered)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+            title="Export filtered records to CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export CSV</span>
+          </button>
+
+          {/* Printable Statement (if in employee/intern context) */}
+          {currentUser && (
+            <button
+              type="button"
+              onClick={() => printMonthlyAttendanceReport(currentUser, records)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+              title="Print verified monthly attendance slip"
+            >
+              <Printer className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Print Slip</span>
+            </button>
+          )}
+
+          {/* Search */}
+          <div className="relative w-full sm:w-56">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search date, place, note..."
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:bg-white transition-colors"
+            />
+          </div>
         </div>
       </div>
 

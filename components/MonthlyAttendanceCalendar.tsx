@@ -12,8 +12,11 @@ import {
   AlertTriangle, 
   ShieldCheck,
   TrendingUp,
-  Info
+  Info,
+  Printer,
+  Download
 } from 'lucide-react';
+import { printMonthlyAttendanceReport, exportAttendanceToCsv } from '@/lib/export-utils';
 
 interface MonthlyAttendanceCalendarProps {
   userId?: string;
@@ -149,8 +152,20 @@ export default function MonthlyAttendanceCalendar({ userId }: MonthlyAttendanceC
           </p>
         </div>
 
-        {/* Punctuality KPIs */}
+        {/* Punctuality KPIs & Print Statement */}
         <div className="flex items-center gap-2 flex-wrap">
+          {currentUser && (
+            <button
+              type="button"
+              onClick={() => printMonthlyAttendanceReport(currentUser, userRecords)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+              title="Print Monthly Shift & Attendance Statement"
+            >
+              <Printer className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Print Statement</span>
+            </button>
+          )}
+
           <div className="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1.5">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
             <span>{punctualityRate}% Punctual</span>

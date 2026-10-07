@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useApp, LOCATION_PRESETS } from './AppContext';
-import { formatElapsedSeconds, formatTime } from '@/lib/utils';
+import { formatElapsedSeconds, formatTime, calculateDistanceKm } from '@/lib/utils';
 import { 
   Clock, 
   MapPin, 
@@ -166,17 +166,30 @@ export default function AttendanceWidget() {
               </span>
             </div>
 
-            <div className="mt-3 space-y-1 text-xs">
+            <div className="mt-3 space-y-1.5 text-xs">
               <p className="font-bold text-slate-900 truncate" title={simulatedCoords.address || ''}>
                 {simulatedCoords.address || "Hyderabad Tech Corridor"}
               </p>
+              
+              {/* Geofence Detection Tag */}
+              {(() => {
+                const dist = calculateDistanceKm(simulatedCoords.lat, simulatedCoords.lng, LOCATION_PRESETS[0].lat, LOCATION_PRESETS[0].lng);
+                const isInside = dist <= 0.45;
+                return (
+                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                    isInside 
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
+                    <span>{isInside ? '🏢 Inside HQ Geofence (≤450m)' : `🏠 Remote / WFH (${dist} km away)`}</span>
+                  </div>
+                );
+              })()}
+
               <p className="text-slate-500 font-mono text-[11px]">
-                LAT: <span className="font-bold text-slate-800">{simulatedCoords.lat.toFixed(5)}</span>
+                LAT: <span className="font-bold text-slate-800">{simulatedCoords.lat.toFixed(5)}</span> • LNG: <span className="font-bold text-slate-800">{simulatedCoords.lng.toFixed(5)}</span>
               </p>
-              <p className="text-slate-500 font-mono text-[11px]">
-                LNG: <span className="font-bold text-slate-800">{simulatedCoords.lng.toFixed(5)}</span>
-              </p>
-              <p className="text-[10px] text-emerald-600 font-semibold pt-1">
+              <p className="text-[10px] text-emerald-600 font-semibold pt-0.5">
                 ✓ {useBrowserGps ? 'Location verified via Hardware GPS' : 'Location active via Simulation Mode'}
               </p>
             </div>
