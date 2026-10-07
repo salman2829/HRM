@@ -60,6 +60,11 @@ export default function Sidebar() {
     ];
   };
 
+  // Do not render sidebar on login page or when logged out
+  if (!currentUser || pathname === '/' || pathname === '/login') {
+    return null;
+  }
+
   const navItems = getNavItems();
 
   return (
