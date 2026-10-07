@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { AttendanceRecord } from '@/lib/types';
 import { useApp } from './AppContext';
 import { formatTime, formatDate, formatDuration } from '@/lib/utils';
-import { Calendar, Clock, MapPin, Search, Smartphone, Download, Printer } from 'lucide-react';
-import { exportAttendanceToCsv, printMonthlyAttendanceReport } from '@/lib/export-utils';
+import { Calendar, Clock, MapPin, Search, Smartphone, Download, Printer, FileSpreadsheet } from 'lucide-react';
+import { exportAttendanceToExcel, exportAttendanceToCsv, printMonthlyAttendanceReport } from '@/lib/export-utils';
 
 interface AttendanceHistoryTableProps {
   records: AttendanceRecord[];
@@ -38,15 +38,26 @@ export default function AttendanceHistoryTable({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* 1-Click CSV Export */}
+          {/* 1-Click Excel Export */}
+          <button
+            type="button"
+            onClick={() => exportAttendanceToExcel(filtered)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+            title="Export filtered records directly to Microsoft Excel (.xls)"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Export to Excel</span>
+          </button>
+
+          {/* CSV Export */}
           <button
             type="button"
             onClick={() => exportAttendanceToCsv(filtered)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
             title="Export filtered records to CSV"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Export CSV</span>
+            <span>CSV</span>
           </button>
 
           {/* Printable Statement (if in employee/intern context) */}
