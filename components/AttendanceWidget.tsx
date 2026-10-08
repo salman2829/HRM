@@ -41,6 +41,7 @@ export default function AttendanceWidget() {
   const isClockedIn = currentUser.status === 'CLOCKED_IN';
 
   const handleClockInAction = async () => {
+    if (loadingAction) return;
     setLoadingAction(true);
     setFeedback(null);
     try {
@@ -57,6 +58,7 @@ export default function AttendanceWidget() {
   };
 
   const handleClockOutAction = async () => {
+    if (loadingAction) return;
     setLoadingAction(true);
     setFeedback(null);
     try {

@@ -169,7 +169,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       if (authJson.success && authJson.user) {
-        setCurrentUserState(authJson.user);
+        setCurrentUserState(prevUser => {
+          if (!prevUser) return authJson.user;
+          // Update current user if IDs match, without overwriting pending clock status
+          if (prevUser.id === authJson.user.id) {
+            return {
+              ...authJson.user,
+              // Retain active shift status if client is ahead
+              status: prevUser.status || authJson.user.status,
+              currentShiftStart: prevUser.currentShiftStart !== undefined ? prevUser.currentShiftStart : authJson.user.currentShiftStart,
+            };
+          }
+          return prevUser;
+        });
         setRoleState(authJson.user.role);
       }
 
@@ -210,7 +222,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
-            timeout: 6000,
+            timeout: 1500,
             maximumAge: 5000,
           });
         });
@@ -249,6 +261,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (data.success && data.user) {
         setCurrentUserState(data.user);
         setRoleState(data.user.role);
+        if (typeof document !== 'undefined') {
+          document.cookie = `hrm_user_id=${data.user.id}; path=/; max-age=604800; SameSite=Lax`;
+        }
         showToast("Authenticated Successfully", `Welcome to WorkPulse, ${data.user.name}`, "success");
         return { success: true, message: data.message, user: data.user };
       }
@@ -263,6 +278,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
+      if (typeof document !== 'undefined') {
+        document.cookie = 'hrm_user_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+      }
       setCurrentUserState(null);
       showToast("Signed Out", "You have been disconnected from the session", "info");
     } catch (e) {
@@ -277,6 +295,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const targetUser = users.find(u => u.role === newRole);
       if (targetUser) {
         setCurrentUserState(targetUser);
+        if (typeof document !== 'undefined') {
+          document.cookie = `hrm_user_id=${targetUser.id}; path=/; max-age=604800; SameSite=Lax`;
+        }
       }
     }
   };
@@ -284,12 +305,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setCurrentUser = (user: User) => {
     setCurrentUserState(user);
     setRoleState(user.role);
+    if (typeof document !== 'undefined') {
+      document.cookie = `hrm_user_id=${user.id}; path=/; max-age=604800; SameSite=Lax`;
+    }
   };
 
-  // Optimistic Clock-In
+  // Optimistic Clock-In with Instant Local Updates
   const clockIn = async (notes?: string) => {
     if (!currentUser) return { success: false, message: "No active user selected" };
     
+    if (typeof document !== 'undefined') {
+      document.cookie = `hrm_user_id=${currentUser.id}; path=/; max-age=604800; SameSite=Lax`;
+    }
+
     const nowIso = new Date().toISOString();
     const coords = await getActiveCoordinates();
 
@@ -303,6 +331,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       lastKnownLocation: null,
     };
     setCurrentUserState(optimisticUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === optimisticUser.id ? optimisticUser : u));
+    setMetrics(prev => prev ? { ...prev, clockedInCount: prev.clockedInCount + 1 } : prev);
 
     try {
       const res = await fetch('/api/attendance', {
@@ -317,25 +347,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
 
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.user) {
         setCurrentUserState(data.user);
-        await fetchData();
+        setUsers(prevUsers => prevUsers.map(u => u.id === data.user.id ? data.user : u));
+        if (data.record) {
+          setAttendanceHistory(prev => [data.record, ...prev.filter(r => r.id !== data.record.id)]);
+        }
+        // Background sync without blocking button response
+        fetchData();
         showToast("Shift Started", `Clocked in successfully from ${coords.address || `${coords.lat}, ${coords.lng}`}`, "success");
         return { success: true, message: `Clocked in at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` };
       }
+      // Revert if server failed
       setCurrentUserState(previousUser);
+      setUsers(prevUsers => prevUsers.map(u => u.id === previousUser.id ? previousUser : u));
+      setMetrics(prev => prev ? { ...prev, clockedInCount: Math.max(0, prev.clockedInCount - 1) } : prev);
       showToast("Clock-In Failed", data.error, "error");
       return { success: false, message: data.error || "Clock-in failed" };
     } catch (err: any) {
       setCurrentUserState(previousUser);
+      setUsers(prevUsers => prevUsers.map(u => u.id === previousUser.id ? previousUser : u));
+      setMetrics(prev => prev ? { ...prev, clockedInCount: Math.max(0, prev.clockedInCount - 1) } : prev);
       showToast("Clock-In Error", err.message, "error");
       return { success: false, message: err.message };
     }
   };
 
-  // Optimistic Clock-Out
+  // Optimistic Clock-Out with Instant Local Updates
   const clockOut = async (notes?: string) => {
     if (!currentUser) return { success: false, message: "No active user selected" };
+
+    if (typeof document !== 'undefined') {
+      document.cookie = `hrm_user_id=${currentUser.id}; path=/; max-age=604800; SameSite=Lax`;
+    }
 
     const nowIso = new Date().toISOString();
     const coords = await getActiveCoordinates();
@@ -351,6 +395,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       currentShiftStart: null,
     };
     setCurrentUserState(optimisticUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === optimisticUser.id ? optimisticUser : u));
+    setMetrics(prev => prev ? { ...prev, clockedInCount: Math.max(0, prev.clockedInCount - 1) } : prev);
 
     try {
       const res = await fetch('/api/attendance', {
@@ -365,17 +411,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
 
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.user) {
         setCurrentUserState(data.user);
-        await fetchData();
+        setUsers(prevUsers => prevUsers.map(u => u.id === data.user.id ? data.user : u));
+        if (data.record) {
+          setAttendanceHistory(prev => [data.record, ...prev.filter(r => r.id !== data.record.id)]);
+        }
+        // Background sync without blocking button response
+        fetchData();
         showToast("Shift Ended", `Coordinates frozen at ${coords.address || `${coords.lat}, ${coords.lng}`}`, "info");
         return { success: true, message: `Shift completed at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` };
       }
+      // Revert if server failed
       setCurrentUserState(previousUser);
+      setUsers(prevUsers => prevUsers.map(u => u.id === previousUser.id ? previousUser : u));
+      setMetrics(prev => prev ? { ...prev, clockedInCount: prev.clockedInCount + 1 } : prev);
       showToast("Clock-Out Failed", data.error, "error");
       return { success: false, message: data.error || "Clock-out failed" };
     } catch (err: any) {
       setCurrentUserState(previousUser);
+      setUsers(prevUsers => prevUsers.map(u => u.id === previousUser.id ? previousUser : u));
+      setMetrics(prev => prev ? { ...prev, clockedInCount: prev.clockedInCount + 1 } : prev);
       showToast("Clock-Out Error", err.message, "error");
       return { success: false, message: err.message };
     }

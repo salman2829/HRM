@@ -24,22 +24,40 @@ export async function POST(request: NextRequest) {
 
     if (action === 'CLOCK_IN') {
       const result = db.clockIn(userId, coords || {}, notes);
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         message: 'Clocked in successfully',
         user: result.user,
         record: result.record
       });
+      response.cookies.set({
+        name: 'hrm_user_id',
+        value: userId,
+        path: '/',
+        httpOnly: false,
+        maxAge: 60 * 60 * 24 * 7,
+        sameSite: 'lax',
+      });
+      return response;
     }
 
     if (action === 'CLOCK_OUT') {
       const result = db.clockOut(userId, coords || {}, notes);
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         message: 'Clocked out successfully',
         user: result.user,
         record: result.record
       });
+      response.cookies.set({
+        name: 'hrm_user_id',
+        value: userId,
+        path: '/',
+        httpOnly: false,
+        maxAge: 60 * 60 * 24 * 7,
+        sameSite: 'lax',
+      });
+      return response;
     }
 
     if (action === 'UPDATE_LOCATION') {
