@@ -38,23 +38,58 @@ export default function MonthlyAttendanceCalendar({ userId }: MonthlyAttendanceC
   const targetUserId = userId || currentUser?.id;
   const userRecords = attendanceHistory.filter(r => r.userId === targetUserId);
 
-  const [selectedMonth, setSelectedMonth] = useState('October 2026');
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIndex = now.getMonth(); // 0-indexed
+  const todayDay = now.getDate();
+
+  const [selectedMonth] = useState(`${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
   const [selectedDayDetail, setSelectedDayDetail] = useState<DayStatusInfo | null>(null);
 
-  // October 2026 starts on a Thursday (day 4), 31 days
-  const totalDays = 31;
-  const startDayOfWeek = 4; // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  const totalDays = new Date(currentYear, currentMonthIndex + 1, 0).getDate();
+  const startDayOfWeek = new Date(currentYear, currentMonthIndex, 1).getDay(); // 0=Sun, 1=Mon...
 
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Map each day in October 2026
+  // Map each day in current month
   const getDayStatus = (dayNum: number): DayStatusInfo => {
-    const dateStr = `2026-10-${dayNum.toString().padStart(2, '0')}`;
+    const monthStr = (currentMonthIndex + 1).toString().padStart(2, '0');
+    const dateStr = `${currentYear}-${monthStr}-${dayNum.toString().padStart(2, '0')}`;
     const dayOfWeek = (startDayOfWeek + dayNum - 1) % 7;
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    if (dayNum > 6) {
-      // Future dates in the month
+    const rec = userRecords.find(r => r.date === dateStr);
+
+    if (dayNum === todayDay) {
+      if (rec) {
+        const isLate = rec.clockInTime && new Date(rec.clockInTime).getMinutes() > 30 && new Date(rec.clockInTime).getHours() >= 9;
+        return {
+          day: dayNum,
+          date: dateStr,
+          status: 'TODAY_ACTIVE' as const,
+          clockIn: new Date(rec.clockInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          clockOut: rec.clockOutTime ? new Date(rec.clockOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'In Progress',
+          duration: rec.durationMinutes ? `${Math.floor(rec.durationMinutes / 60)}h ${rec.durationMinutes % 60}m` : 'Live Shift',
+          notes: rec.notes || (isLate ? "Shift active (Late arrival recorded)" : "Shift active & verified via GPS")
+        };
+      }
+    }
+
+    if (rec) {
+      const inDate = new Date(rec.clockInTime);
+      const isLate = (inDate.getHours() === 9 && inDate.getMinutes() > 30) || inDate.getHours() > 9;
+      return {
+        day: dayNum,
+        date: dateStr,
+        status: isLate ? ('LATE' as const) : ('PUNCTUAL' as const),
+        clockIn: inDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        clockOut: rec.clockOutTime ? new Date(rec.clockOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--:--',
+        duration: rec.durationMinutes ? `${Math.floor(rec.durationMinutes / 60)}h ${rec.durationMinutes % 60}m` : 'Shift Logged',
+        notes: rec.notes || (isLate ? "Late arrival recorded" : "Punctual regular check-in")
+      };
+    }
+
+    if (dayNum > todayDay) {
       return {
         day: dayNum,
         date: dateStr,
@@ -63,58 +98,12 @@ export default function MonthlyAttendanceCalendar({ userId }: MonthlyAttendanceC
       };
     }
 
-    if (dayNum === 6) {
-      // Today (Oct 6, 2026)
-      const rec = userRecords.find(r => r.date === dateStr);
-      if (rec) {
-        const isLate = rec.clockInTime && new Date(rec.clockInTime).getUTCMinutes() > 30 && new Date(rec.clockInTime).getUTCHours() >= 9;
-        return {
-          day: dayNum,
-          date: dateStr,
-          status: 'TODAY_ACTIVE' as const,
-          clockIn: new Date(rec.clockInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          clockOut: rec.clockOutTime ? new Date(rec.clockOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'In Progress',
-          duration: rec.durationMinutes ? `${Math.floor(rec.durationMinutes / 60)}h ${rec.durationMinutes % 60}m` : 'Live Shift',
-          notes: isLate ? "Shift active (Late arrival recorded)" : "Shift active & verified via GPS"
-        };
-      }
-    }
-
     if (isWeekend) {
       return {
         day: dayNum,
         date: dateStr,
         status: 'WEEKEND' as const,
         notes: "Weekend Rest Day"
-      };
-    }
-
-    // Historical days 1 to 5
-    const rec = userRecords.find(r => r.date === dateStr);
-    if (rec) {
-      const inDate = new Date(rec.clockInTime);
-      const isLate = (inDate.getUTCHours() === 9 && inDate.getUTCMinutes() > 30) || inDate.getUTCHours() > 9;
-      return {
-        day: dayNum,
-        date: dateStr,
-        status: isLate ? ('LATE' as const) : ('PUNCTUAL' as const),
-        clockIn: inDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        clockOut: rec.clockOutTime ? new Date(rec.clockOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '18:00 PM',
-        duration: rec.durationMinutes ? `${Math.floor(rec.durationMinutes / 60)}h ${rec.durationMinutes % 60}m` : '8h 45m',
-        notes: isLate ? "Traffic congestion on Hitec City flyover" : "Punctual regular check-in"
-      };
-    }
-
-    // Day 4 has approved leave in mock
-    if (dayNum === 2) {
-      return {
-        day: dayNum,
-        date: dateStr,
-        status: 'PUNCTUAL' as const,
-        clockIn: '09:12 AM',
-        clockOut: '18:00 PM',
-        duration: '8h 48m',
-        notes: 'Punctual regular shift'
       };
     }
 

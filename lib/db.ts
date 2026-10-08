@@ -359,6 +359,20 @@ export const db = {
       deviceType: "Browser Web Client"
     };
 
+    // Auto-close any prior unclosed shifts from previous days for clean multi-day logs
+    database.attendanceRecords.forEach((rec) => {
+      if (rec.userId === userId && !rec.clockOutTime) {
+        rec.clockOutTime = nowIso;
+        rec.clockOutCoords = enrichedCoords;
+        if (rec.clockInTime) {
+          const elapsed = Math.max(1, Math.round((now.getTime() - new Date(rec.clockInTime).getTime()) / (1000 * 60)));
+          rec.durationMinutes = Math.min(elapsed, 480);
+        } else {
+          rec.durationMinutes = 480;
+        }
+      }
+    });
+
     database.attendanceRecords.unshift(newRecord);
     database.users[userIndex] = targetUser;
     database.lastUpdated = nowIso;
